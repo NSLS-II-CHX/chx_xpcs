@@ -11,7 +11,6 @@ from ..eiger.eiger import get_header_dict, get_valid_keys
 
 def make_config_file(filename, dqmap, sqmap,
                             out_filename="out.hd5", beg=1, end=None,
-                            mask=None,
                             stride_frames=1, avg_frames=1,
                             delays_per_level=4,
                             eiger_version="v1.3.0"
@@ -49,9 +48,6 @@ def make_config_file(filename, dqmap, sqmap,
             The end frame to analyze
             if None, then use the last frame
 
-        mask : 2d np.ndarray or None, optional
-            the mask for the images
-
         stride_frames: int, optional
             skip every nth frame where "n" is the stride_frames
             stride is performed before average
@@ -75,11 +71,10 @@ def make_config_file(filename, dqmap, sqmap,
         imgs_per_key = dims_per_key[0]
         dims = dims_per_key[1:]
 
-        if mask is None:
-            mask = np.ones(dims)
+        mask = (dqmap > 0).astype(int)
 
         if end is None:
-            end = len(dset_keys)
+            end = Nkeys*imgs_per_key
 
         # the output path into the out hdf5 file
         fout['/xpcs/output_data'] = b'/exchange'
@@ -112,7 +107,7 @@ def make_config_file(filename, dqmap, sqmap,
         # data begin and end and todo (to run)
         fout['/xpcs/data_begin'] = np.array([[1]])
         fout['/xpcs/data_begin_todo'] = np.array([[beg]])
-        fout['/xpcs/data_end'] = np.array([[Nkeys]])
+        fout['/xpcs/data_end'] = np.array([[end]])
         fout['/xpcs/data_end_todo'] = np.array([[end]])
 
         # mask
@@ -143,6 +138,12 @@ def make_config_file(filename, dqmap, sqmap,
         fout['/measurement/instrument/source_begin/beam_intensity_transmitted'] = 1
         fout['/measurement/sample/thickness'] = 1
         fout['/measurement/instrument/detector/flatfield'] = 1
+
+        # how many frames to group for partitioning
+        # this will compute an extra statistic per this number of frames
+        # average versus time etc
+        fout['/xpcs/static_mean_window_size'] = [[51]]
+        fout['/xpcs/input_file_local'] = ""
 
         #####################################################################
         # variables I think we don't need or I'm not sure about below here: #
@@ -200,6 +201,5 @@ def make_config_file(filename, dqmap, sqmap,
             fout['/xpcs/sphispan'] = [[-268.8913269, 89.53925323]]
             fout['/xpcs/sqlist'] = [[]]
             fout['/xpcs/sqspan'] = [[ ]]
-            fout['/xpcs/static_mean_window_size'] = [[51]]
             fout['/xpcs/swbinX'] = [[1]]
             fout['/xpcs/swbinY'] = [[1]]
