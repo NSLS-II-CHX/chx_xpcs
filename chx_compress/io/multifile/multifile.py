@@ -230,11 +230,11 @@ class MultifileBNL:
         # some initialization stuff
         self.nbytes = self.md['bytes']
         if (self.nbytes==2):
-            self.valtype = "<i2"#np.uint16
+            self.valtype = np.uint16
         elif (self.nbytes == 4):
-            self.valtype = "<i4"#np.uint32
+            self.valtype = np.uint32
         elif (self.nbytes == 8):
-            self.valtype = "<i8"#np.float64
+            self.valtype = np.float64
 
 
         # frame number currently on
