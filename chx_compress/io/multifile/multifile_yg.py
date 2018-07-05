@@ -14,7 +14,7 @@ class Multifile:
 	numbered image and means the program starts for the beginning again.
 
     '''
-    def __init__(self,filename,beg,end):
+    def __init__(self,filename,beg,end, reverse=False):
         '''Multifile initialization. Open the file.
             Here I use the read routine which returns byte objects
             (everything is an object in python). I use struct.unpack
@@ -38,6 +38,19 @@ class Multifile:
         magic = struct.unpack('@16s', br[:16])
         md_temp =  struct.unpack('@8d7I916x', br[16:])
         self.md = dict(zip(ms_keys, md_temp))
+        if reverse:
+            nrows  = self.md['nrows'] 
+            ncols  = self.md['ncols']
+            self.md['nrows'] = ncols
+            self.md['ncols'] = nrows
+            rbeg = self.md['rows_begin']
+            rend = self.md['rows_end']
+            cbeg = self.md['cols_begin']
+            cend = self.md['cols_end']
+            self.md['rows_begin']=cbeg
+            self.md['rows_end']=cend
+            self.md['cols_begin']=rbeg
+            self.md['cols_end']=rend
 
         self.imgread=0
         self.recno = 0
