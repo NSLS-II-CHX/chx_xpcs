@@ -259,15 +259,17 @@ class MultifileBNL:
         # file_bytes = len(self._fd)
 
         self.frame_indexes = list()
+        # for convenience
+        self.frame_dlens = list()
         while cur < file_bytes:
             self.frame_indexes.append(cur)
             # first get dlen, 4 bytes
-
-            # dlen = np.frombuffer(self._fd[cur:cur+4], dtype="<u4")[0]
-            self._fd.seek(cur, os.SEEK_SET)
-            # dlen = np.frombuffer(self._fd[cur+152:cur+156], dtype="<u4")[0]
-            dlen = np.fromfile(self._fd, dtype=np.uint32, count=1)[0]
-            # print("found {} bytes".format(dlen))
+            #dlen = np.frombuffer(self._fd[cur:cur+4], dtype="<u4")[0]
+            self._fd.seek(cur,os.SEEK_SET)
+            #dlen = np.frombuffer(self._fd[cur+152:cur+156], dtype="<u4")[0]
+            dlen = np.fromfile(self._fd, dtype=np.uint32,count=1)[0]
+            self.frame_dlens.append(dlen)
+            #print("found {} bytes".format(dlen))
             # self.nbytes is number of bytes per val
             cur += 4 + dlen*(4+self.nbytes)
             # break
@@ -311,23 +313,14 @@ class MultifileBNL:
             raise KeyError("Error, only {} frames, asked for {}"
                            .format(self.Nframes, n))
         # dlen is 4 bytes
-        cur = self.frame_indexes[n]
-        # dlen = np.frombuffer(self._fd[cur:cur+4], dtype="<u4")[0]
-        self._fd.seek(cur, os.SEEK_SET)
-        dlen = np.fromfile(self._fd, dtype=np.uint32, count=1)[0]
-        cur += 4
+        cur = self.frame_indexes[n] + 4 # +4 for dlen
 
-        # pos = self._fd[cur: cur+dlen*4]
-        # pos = np.frombuffer(pos, dtype='<u4')
-        # self._fd.seek(cur,os.SEEK_SET)
-        pos = np.fromfile(self._fd, dtype=np.uint32, count=dlen)
+        dlen = self.frame_dlens[n]
 
-        cur += dlen*4
-        # TODO: 2-> nbytes
-        # vals = self._fd[cur: cur+dlen*self.nbytes]
-        # vals = np.frombuffer(vals, dtype=self.valtype)
-        # self._fd.seek(cur,os.SEEK_SET)
-        vals = np.fromfile(self._fd, dtype=self.valtype, count=dlen)
+        self._fd.seek(cur,os.SEEK_SET)
+
+        pos = np.fromfile(self._fd, dtype=np.uint32,count=dlen)
+        vals = np.fromfile(self._fd, dtype=self.valtype,count=dlen)
 
         return pos, vals
 
