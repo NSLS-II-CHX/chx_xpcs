@@ -1,7 +1,64 @@
+import os.path
 import numpy as np
 import os
 import struct
 import time
+"""    Description:
+     This is code that Mark wrote to open the multifile format
+    in compressed mode, translated to python.
+    This seems to work for DALSA and FCCD in compressed mode
+    should be included in the respective detector.i files
+    Currently, this refers to the compression mode being '6'
+    Each file is image descriptor files chunked together as follows:
+
+    |--------------IMG N begin--------------|
+    |        Header (1024 bytes)            |
+    |---------------------------------------|
+    |       Pixel positions (dlen*4 bytes   |
+    |      (0 based indexing in file)       |
+    |---------------------------------------|
+    |    Pixel data(dlen*bytes bytes)       |
+    |    (bytes is found in header          |
+    |    at position 116)                   |
+    |--------------IMG N end----------------|
+    |--------------IMG N+1 begin------------|
+    |----------------etc.....---------------|
+
+    Here is the file layout as follows:
+    0: mode (4 bytes)
+    4: compression (4 bytes)
+    8: date (32 bytes)
+    40: prefix (16 bytes)
+    56: number (4 bytes)
+    60: suffix (16 bytes)
+    76: monitor (4 bytes)
+    80: shutter (4 bytes)
+    84: row_beg (4 bytes)
+    88: row_end (4 bytes)
+    92: col_beg (4 bytes)
+    96: col_end (4 bytes)
+    100: row_bin (4 bytes)
+    104: col_bin (4 bytes)
+    108: rows (4 bytes)
+    112: cols (4 bytes)
+    116: bytes (4 bytes)
+    120: kinetics (4 bytes)
+    124: kinwinsize (4 bytes)
+    128: elapsed (8 bytes)
+    136: preset (8 bytes) in seconds
+    144: topup (4 bytes)
+    148: inject (4 bytes)
+    152: dlen (4 bytes)
+    156: roi_number (4 bytes)
+    160: buffer_number (4 bytes)
+    164: systick (4 bytes) in clock cycles
+    608: imageserver (4 bytes)
+    612: CPUspeed (4 bytes)
+    616: immversion (4 bytes)
+    620: corecotick (4 bytes) in microseconds
+    624: cameratype (4 bytes)
+    628: threshold (4 bytes)
+"""
 
 """    Description:
 
@@ -65,14 +122,13 @@ class MultifileAPS:
         # open the file descriptor
         # create a memmap
         if mode == 'rb':
-            # self._fd = np.memmap(filename, dtype='c')
-            self._fd = open(filename, "rb")
+            self._fd = np.memmap(filename, dtype='c')
+            # frame number currently on
+            self.index()
+            self.beg = 0
+            self.end = self.Nframes-1
         elif mode == 'wb':
             self._fd = open(filename, "wb")
-        # frame number currently on
-        self.index()
-        self.beg = 0
-        self.end = self.Nframes-1
 
         # these are only necessary for writing
         hdr = self._read_header(0)
@@ -125,14 +181,106 @@ class MultifileAPS:
         cur = self.frame_indexes[n]
         # header_raw = self._fd[cur:cur + self.HEADER_SIZE]
         header = dict()
-        self._fd.seek(cur + 108, os.SEEK_SET)
-        header['rows'] = np.fromfile(self._fd, dtype=self._dtype, count=1)[0]
-        self._fd.seek(cur + 112, os.SEEK_SET)
-        header['cols'] = np.fromfile(self._fd, dtype=self._dtype, count=1)[0]
-        self._fd.seek(cur + 116, os.SEEK_SET)
-        header['nbytes'] = np.fromfile(self._fd, dtype=self._dtype, count=1)[0]
-        self._fd.seek(cur + 152, os.SEEK_SET)
-        header['dlen'] = np.fromfile(self._fd, dtype=self._dtype, count=1)[0]
+        #header['rows'] = np.frombuffer(header_raw[108:112], dtype=self._dtype)[0]
+        #header['cols'] = np.frombuffer(header_raw[112:116], dtype=self._dtype)[0]
+        #header['nbytes'] = np.frombuffer(header_raw[116:120], dtype=self._dtype)[0]
+        #header['dlen'] = np.frombuffer(header_raw[152:156], dtype=self._dtype)[0]
+        #print("dlen: {}\trows: {}\tcols: {}\tnbytes: {}\n"\
+              #.format(header['dlen'], header['rows'], header['cols'],
+                      #header['nbytes']))
+        # 0: mode (4 bytes)
+        header['mode'] = np.frombuffer(header_raw[0:4], dtype=np.uint32)[0]
+        # 4: compression (4 bytes)
+        header['date'] = header_raw[8:8+16].tobytes()
+        # 8: date (32 bytes)
+        header['prefix'] = header_raw[40:40+16].tobytes()
+        # 40: prefix (16 bytes)
+        header['number'] = np.frombuffer(header_raw[56:56+4],
+                                         dtype=np.uint32)[0]
+        # 56: number (4 bytes)
+        header['suffix'] = header_raw[60:60+16].tobytes()
+        # 60: suffix (16 bytes)
+        header['monitor'] = np.frombuffer(header_raw[76:76+4],
+                                          dtype=np.uint32)[0]
+        # 76: monitor (4 bytes)
+        header['shutter'] = np.frombuffer(header_raw[80:80+4],
+                                          dtype=np.uint32)[0]
+        # 80: shutter (4 bytes)
+        header['row_beg'] = np.frombuffer(header_raw[84:84+4],
+                                          dtype=np.uint32)[0]
+        # 84: row_beg (4 bytes)
+        header['row_end'] = np.frombuffer(header_raw[88:88+4],
+                                          dtype=np.uint32)[0]
+        # 88: row_end (4 bytes)
+        header['col_beg'] = np.frombuffer(header_raw[92:92+4],
+                                          dtype=np.uint32)[0]
+        # 92: col_beg (4 bytes)
+        header['col_end'] = np.frombuffer(header_raw[96:96+4],
+                                          dtype=np.uint32)[0]
+        # 96: col_end (4 bytes)
+        header['row_bin'] = np.frombuffer(header_raw[100:100+4],
+                                          dtype=np.uint32)[0]
+        # 100: row_bin (4 bytes)
+        header['col_bin'] = np.frombuffer(header_raw[104:104+4],
+                                          dtype=np.uint32)[0]
+        # 104: col_bin (4 bytes)
+        header['rows'] = np.frombuffer(header_raw[108:108+4],
+                                       dtype=np.uint32)[0]
+        # 108: rows (4 bytes)
+        header['cols'] = np.frombuffer(header_raw[112:112+4],
+                                       dtype=np.uint32)[0]
+        # 112: cols (4 bytes)
+        header['nbytes'] = np.frombuffer(header_raw[116:116+4],
+                                         dtype=np.uint32)[0]
+        # 116: bytes (4 bytes)
+        header['kinetics'] = np.frombuffer(header_raw[120:120+4],
+                                           dtype=np.uint32)[0]
+        # 120: kinetics (4 bytes)
+        header['kinwinsize'] = np.frombuffer(header_raw[124:124+4],
+                                             dtype=np.uint32)[0]
+        # 124: kinwinsize (4 bytes)
+        header['elapsed'] = np.frombuffer(header_raw[128:128+4],
+                                          dtype=np.uint32)[0]
+        # 128: elapsed (8 bytes)
+        header['preset'] = np.frombuffer(header_raw[136:136+8],
+                                         dtype=np.float64)[0]
+        # 136: preset (8 bytes) in seconds
+        header['topup'] = np.frombuffer(header_raw[144:144+4],
+                                        dtype=np.uint32)[0]
+        # 144: topup (4 bytes)
+        header['inject'] = np.frombuffer(header_raw[148:148+4],
+                                         dtype=np.uint32)[0]
+        # 148: inject (4 bytes)
+        header['dlen'] = np.frombuffer(header_raw[152:152+4],
+                                       dtype=np.uint32)[0]
+        # 152: dlen (4 bytes)
+        header['roi_number'] = np.frombuffer(header_raw[156:156+4],
+                                             dtype=np.uint32)[0]
+        # 156: roi_number (4 bytes)
+        header['buffer_number'] = np.frombuffer(header_raw[160:160+4],
+                                                dtype=np.uint32)[0]
+        # 160: buffer_number (4 bytes)
+        header['systick'] = np.frombuffer(header_raw[164:164+4],
+                                          dtype=np.uint32)[0]
+        # 164: systick (4 bytes) in clock cycles
+        header['imageserver'] = np.frombuffer(header_raw[608:608+4],
+                                              dtype=np.uint32)[0]
+        # 608: imageserver (4 bytes)
+        header['CPUspeed'] = np.frombuffer(header_raw[612:612+4],
+                                           dtype=np.uint32)[0]
+        # 612: CPUspeed (4 bytes)
+        header['immversion'] = np.frombuffer(header_raw[616:616+4],
+                                             dtype=np.uint32)[0]
+        # 616: immversion (4 bytes)
+        header['corecotick'] = np.frombuffer(header_raw[620:620+4],
+                                             dtype=np.uint32)[0]
+        # 620: corecotick (4 bytes) in microseconds
+        header['cameratype'] = np.frombuffer(header_raw[624:624+4],
+                                             dtype=np.uint32)[0]
+        # 624: cameratype (4 bytes)
+        header['threshold'] = np.frombuffer(header_raw[628:628+4],
+                                            dtype=np.uint32)[0]
+        # 628: threshold (4 bytes)
 
         self._dlen = header['dlen']
         self._nbytes = header['nbytes']
@@ -199,19 +347,41 @@ class MultifileBNL:
 
     '''
     HEADER_SIZE = 1024
-
-    def __init__(self, filename, mode='rb', version=2):
+    def __init__(self, filename, mode='rb', version=2, md={}):
         '''
             Prepare a file for reading or writing.
-            mode : either 'rb' or 'wb'
 
+            Parameters
+            ----------
+            filename : string
+                the filename to read/write from
+            mode: 'rb' or 'wb'
+                the read/write mode
             version : int, optional
                 version 1 is old bnl format
                 version 2 is the new format
+            md: dict, optional
+                when writing, this needs to be set
+                beam_center_x: (float) beam center x pos
+                beam_center_y: (float) beam center y pos
+                count_time: (float) exposure time
+                detector_distance: (float) sample det distance
+                frame_time: (float) frame time
+                incident_wavelength: (float) wavelength
+                x_pixel_size: (float) pixel x dimensions
+                y_pixel_size: (float) pixel y dimensions
+                bytes: (int) number of bytes per val
+                nrows: (int) number of rows in an image
+                ncols: (int) number of cols in an image
+                rows_begin: beginning row number
+                rows_end: end row number
+                cols_begin: beginning col number
+                cols_end: end col number
         '''
+        self.md = md
         self._version = version
-        if mode == 'wb':
-            raise ValueError("Write mode 'wb' not supported yet")
+        #if mode == 'wb':
+            #raise ValueError("Write mode 'wb' not supported yet")
 
         if mode != 'rb' and mode != 'wb':
             raise ValueError("Error, mode must be 'rb' or 'wb'"
@@ -223,15 +393,22 @@ class MultifileBNL:
         # open the file descriptor
         # create a memmap
         if mode == 'rb':
-            # self._fd = np.memmap(filename, dtype='c')
-            self._fd = open(filename, "rb")
+            self._fd = np.memmap(filename, dtype='c')
+            # these are only necessary for reading 
+            self.md = self._read_main_header()
+            self._rows = int(self.md['nrows'])
+            self._cols = int(self.md['ncols'])
         elif mode == 'wb':
-            self._fd = open(filename, "wb")
+            if os.path.exists(filename):
+                msg = f"Warning: {filename} exists. Overwrite? (y/N)"
+                result = input(msg)
+                if result.lower() != "y":
+                    raise ValueError("Error cannot continue")
 
-        # these are only necessary for writing
-        self.md = self._read_main_header()
-        self._rows = int(self.md['nrows'])
-        self._cols = int(self.md['ncols'])
+            self._fd = open(filename, "wb")
+            print("initializing for write, writing main header")
+            self._write_main_header(self.md)
+
 
         # some initialization stuff
         self.nbytes = self.md['bytes']
@@ -242,8 +419,13 @@ class MultifileBNL:
         elif (self.nbytes == 8):
             self.valtype = np.float64
 
-        # frame number currently on
-        self.index()
+
+        if mode == 'rb':
+            # frame number currently on
+            self.index()
+
+    def close(self):
+        self._fd.close()
 
     def __len__(self):
         return self.Nframes
@@ -303,6 +485,46 @@ class MultifileBNL:
         self.md = dict(zip(ms_keys, md_temp))
         return self.md
 
+    def _write_main_header(self, md):
+        ''' Write header.
+
+            Parameters
+            ----------
+            md: optional
+                optional md to add
+
+            Extracting the header was written by Yugang Zhang. This is BNL's
+            format.
+            1024 byte header +
+            4 byte dlen + (4 + nbytes)*dlen bytes
+            etc...
+            Format:
+                unsigned int beam_center_x;
+                unsigned int beam_center_y;
+        '''
+        # read in bytes
+        # header is always from zero
+        args = list()
+        ms_keys = ['beam_center_x', 'beam_center_y', 'count_time',
+                   'detector_distance', 'frame_time', 'incident_wavelength',
+                   'x_pixel_size', 'y_pixel_size', 'bytes', 'nrows', 'ncols',
+                   'rows_begin', 'rows_end', 'cols_begin', 'cols_end']
+        '''
+            16 chars : Version-COMP0001
+            8 doubles : 'beam_center_x', 'beam_center_y', 'count_time',
+                   'detector_distance', 'frame_time', 'incident_wavelength',
+                   'x_pixel_size', 'y_pixel_size'
+            7 integers : 'bytes', 'nrows', 'ncols',
+                   'rows_begin', 'rows_end', 'cols_begin', 'cols_end'
+        '''
+        args.append("Version-COMP0001".encode())
+        for key in ms_keys:
+            args.append(md.get(key))
+        fmt = '@16s8d7I916x'
+        br = struct.pack(fmt, *args)
+        # now write the md
+        self._fd.write(br)
+
     def _read_raw(self, n):
         ''' Read from raw.
             Reads from current cursor in file.
@@ -330,6 +552,29 @@ class MultifileBNL:
         vals = np.fromfile(self._fd, dtype=self.valtype, count=dlen)
 
         return pos, vals
+
+    def _write_raw(self, pos, vals):
+        ''' Read from raw.
+            Reads from current cursor in file.
+        '''
+        # dlen is 4 bytes
+        if len(pos) != len(vals):
+            msg = "Error, len(pos) != len(vals)\n"
+            msg += f"{len(pos)} != {len(vals)}"
+            raise ValueError(msg)
+
+        dlen = struct.pack("@I", len(pos))
+        self._fd.write(dlen)
+
+        pos = pos.astype(np.uint32)
+        self._fd.write(pos.tobytes(order="C"))
+
+        vals = vals.astype(self.valtype)
+        self._fd.write(vals.tobytes(order="C"))
+
+    def writeframe(self, img):
+        pass
+
 
     def rdframe(self, n):
         # read header then image
