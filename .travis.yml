@@ -8,6 +8,8 @@ cache:
 
 install:
   # Install this package and the packages listed in requirements.txt.
+  # fix to install eiger-io which is not on pypi yet
+  - pip install git+https://www.github.com/nsls-ii/eiger-io@v2.0.2
   - pip install .
   # Install extra requirements for running tests and building docs.
   - pip install -r requirements-dev.txt
