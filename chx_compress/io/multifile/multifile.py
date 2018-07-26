@@ -122,18 +122,17 @@ class MultifileAPS:
         # open the file descriptor
         # create a memmap
         if mode == 'rb':
-            self._fd = np.memmap(filename, dtype='c')
+            self._fd = open(filename, "rb")
             # frame number currently on
             self.index()
             self.beg = 0
             self.end = self.Nframes-1
+            # these are only necessary for writing
+            hdr = self._read_header(0)
+            self._rows = int(hdr['rows'])
+            self._cols = int(hdr['cols'])
         elif mode == 'wb':
             self._fd = open(filename, "wb")
-
-        # these are only necessary for writing
-        hdr = self._read_header(0)
-        self._rows = int(hdr['rows'])
-        self._cols = int(hdr['cols'])
 
     def rdframe(self, n):
         # read header then image
@@ -343,6 +342,9 @@ class MultifileAPS:
         self._fd.write(pos)
         self._fd.write(vals)
 
+    def close(self):
+        self._fd.close()
+
 
 # TODO : split into RO and RW classes
 class MultifileBNL:
@@ -398,7 +400,7 @@ class MultifileBNL:
         # open the file descriptor
         # create a memmap
         if mode == 'rb':
-            self._fd = np.memmap(filename, dtype='c')
+            self._fd = open(filename, "rb")
             # these are only necessary for reading
             self.md = self._read_main_header()
             self._rows = int(self.md['nrows'])
