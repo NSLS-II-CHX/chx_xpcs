@@ -1,10 +1,8 @@
 import h5py
 import numpy as np
 from tqdm import tqdm
-
-import struct
-
 from .eiger import get_header_binary, get_valid_keys
+
 
 def compress_file(filename, outfile="out.bin", version="v1.3.0", mask=None,
                   verbose=False):
@@ -27,12 +25,12 @@ def compress_file(filename, outfile="out.bin", version="v1.3.0", mask=None,
     # open and close file, figure out what the valid keys are
     dset_keys, dims_per_key = get_valid_keys(filename, version=version)
 
-    Nkeys = len(dset_keys)
+    # Nkeys = len(dset_keys)
     nimgs = dims_per_key[0]
     dims = dims_per_key[1:]
 
-    dset_min = 1
-    dset_max = Nkeys+1
+    # dset_min = 1
+    # dset_max = Nkeys+1
 
     arr = np.zeros(dims, dtype=np.uint16)
 
@@ -53,16 +51,16 @@ def compress_file(filename, outfile="out.bin", version="v1.3.0", mask=None,
             # this is an important trick to ensure the reading is blazingly
             # fast. Doing this incorrectly can result in a significant
             # reduction in performance! At least a factor of 10!
-            dset.read_direct(arr, np.s_[j,:,:])
+            dset.read_direct(arr, np.s_[j, :, :])
 
-            #test = np.array(f[key][j])
+            # test = np.array(f[key][j])
             # TODO : Here we should use our own conditions to test
             if mask is not None:
                 w, = np.where(((arr*mask).ravel() > 0))
             else:
                 w, = np.where((arr.ravel() > 0))
 
-            #print("found {} items".format(len(w[0])))
+            # print("found {} items".format(len(w[0])))
             fout.write(np.uint32(len(w)))
             fout.write(w.astype(np.uint32))
             fout.write(arr.ravel()[w])

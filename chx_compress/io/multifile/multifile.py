@@ -1,5 +1,7 @@
 import numpy as np
 import os
+import struct
+import time
 
 """    Description:
 
@@ -24,14 +26,15 @@ import os
     |----------------etc.....---------------|
 
 
-     Header contains 1024 bytes version name, 'beam_center_x', 'beam_center_y', 'count_time', 'detector_distance',
-           'frame_time', 'incident_wavelength', 'x_pixel_size', 'y_pixel_size',
-           bytes per pixel (either 2 or 4 (Default)),
-           Nrows, Ncols, Rows_Begin, Rows_End, Cols_Begin, Cols_End,
+     Header contains 1024 bytes version name, 'beam_center_x', 'beam_center_y',
+        'count_time', 'detector_distance', 'frame_time', 'incident_wavelength',
+        'x_pixel_size', 'y_pixel_size', bytes per pixel (either 2 or 4
+        (Default)), Nrows, Ncols, Rows_Begin, Rows_End, Cols_Begin, Cols_End,
 
 
 
 """
+
 
 # TODO : split into RO and RW classes
 class MultifileAPS:
@@ -40,6 +43,7 @@ class MultifileAPS:
 
     '''
     HEADER_SIZE = 1024
+
     def __init__(self, filename, mode='rb', nbytes=2):
         '''
             Prepare a file for reading or writing.
@@ -58,11 +62,10 @@ class MultifileAPS:
         elif nbytes == 4:
             self._dtype = '<i4'
 
-
         # open the file descriptor
         # create a memmap
         if mode == 'rb':
-            #self._fd = np.memmap(filename, dtype='c')
+            # self._fd = np.memmap(filename, dtype='c')
             self._fd = open(filename, "rb")
         elif mode == 'wb':
             self._fd = open(filename, "wb")
@@ -78,7 +81,6 @@ class MultifileAPS:
 
     def rdframe(self, n):
         # read header then image
-        hdr = self._read_header(n)
         pos, vals = self._read_raw(n)
         img = np.zeros((self._rows*self._cols,))
         img[pos] = vals
@@ -86,12 +88,7 @@ class MultifileAPS:
 
     def rdrawframe(self, n):
         # read header then image
-        hdr = self._read_header(n)
         return self._read_raw(n)
-
-    def rdchunk(self):
-        ''' read the next chunk'''
-        header = self._fd.read(1024)
 
     def index(self):
         ''' Index the file by reading all frame_indexes.
@@ -107,43 +104,35 @@ class MultifileAPS:
             self.frame_indexes.append(cur)
             # first get dlen, 4 bytes
 
-            self._fd.seek(cur+152,os.SEEK_SET)
-            #dlen = np.frombuffer(self._fd[cur+152:cur+156], dtype="<u4")[0]
-            dlen = np.fromfile(self._fd, dtype=np.uint32,count=1)[0]
+            self._fd.seek(cur+152, os.SEEK_SET)
+            # dlen = np.frombuffer(self._fd[cur+152:cur+156], dtype="<u4")[0]
+            dlen = np.fromfile(self._fd, dtype=np.uint32, count=1)[0]
             print("found {} bytes".format(dlen))
             # self.nbytes is number of bytes per val
             cur += 1024 + dlen*(4+self._nbytes)
-            #break
+            # break
 
         self.Nframes = len(self.frame_indexes)
         t2 = time.time()
         print("Done. Took {} secs for {} frames".format(t2-t1, self.Nframes))
 
-
-
     def _read_header(self, n):
         ''' Read header from current seek position.'''
         if n > self.Nframes:
-            raise KeyError("Error, only {} frames, asked for {}".format(self.Nframes, n))
+            raise KeyError("Error, only {} frames, asked for {}"
+                           .format(self.Nframes, n))
         # read in bytes
         cur = self.frame_indexes[n]
-        #header_raw = self._fd[cur:cur + self.HEADER_SIZE]
+        # header_raw = self._fd[cur:cur + self.HEADER_SIZE]
         header = dict()
-        self._fd.seek(cur + 108,os.SEEK_SET)
-        header['rows'] = np.fromfile(self._fd, dtype=self._dtype,count=1)[0]
-        self._fd.seek(cur + 112,os.SEEK_SET)
-        header['cols'] = np.fromfile(self._fd, dtype=self._dtype,count=1)[0]
-        self._fd.seek(cur + 116,os.SEEK_SET)
-        header['nbytes'] = np.fromfile(self._fd, dtype=self._dtype,count=1)[0]
-        self._fd.seek(cur + 152,os.SEEK_SET)
-        header['dlen'] = np.fromfile(self._fd, dtype=self._dtype,count=1)[0]
-        #header['rows'] = np.frombuffer(header_raw[108:112], dtype=self._dtype)[0]
-        #header['cols'] = np.frombuffer(header_raw[112:116], dtype=self._dtype)[0]
-        #header['nbytes'] = np.frombuffer(header_raw[116:120], dtype=self._dtype)[0]
-        #header['dlen'] = np.frombuffer(header_raw[152:156], dtype=self._dtype)[0]
-        #print("dlen: {}\trows: {}\tcols: {}\tnbytes: {}\n"\
-              #.format(header['dlen'], header['rows'], header['cols'],
-                      #header['nbytes']))
+        self._fd.seek(cur + 108, os.SEEK_SET)
+        header['rows'] = np.fromfile(self._fd, dtype=self._dtype, count=1)[0]
+        self._fd.seek(cur + 112, os.SEEK_SET)
+        header['cols'] = np.fromfile(self._fd, dtype=self._dtype, count=1)[0]
+        self._fd.seek(cur + 116, os.SEEK_SET)
+        header['nbytes'] = np.fromfile(self._fd, dtype=self._dtype, count=1)[0]
+        self._fd.seek(cur + 152, os.SEEK_SET)
+        header['dlen'] = np.fromfile(self._fd, dtype=self._dtype, count=1)[0]
 
         self._dlen = header['dlen']
         self._nbytes = header['nbytes']
@@ -155,22 +144,23 @@ class MultifileAPS:
             Reads from current cursor in file.
         '''
         if n > self.Nframes:
-            raise KeyError("Error, only {} frames, asked for {}".format(self.Nframes, n))
+            raise KeyError("Error, only {} frames, asked for {}"
+                           .format(self.Nframes, n))
         cur = self.frame_indexes[n] + 1024
         dlen = self._read_header(n)['dlen']
 
-        #pos = self._fd[cur: cur+dlen*4]
+        # pos = self._fd[cur: cur+dlen*4]
         self._fd.seek(cur, os.SEEK_SET)
-        pos = np.fromfile(self._fd, dtype=np.uint32,count=dlen)
+        pos = np.fromfile(self._fd, dtype=np.uint32, count=dlen)
         cur += dlen*4
-        #pos = np.frombuffer(pos, dtype='<i4')
+        # pos = np.frombuffer(pos, dtype='<i4')
 
         # TODO: 2-> nbytes
         vals = np.fromfile(self._fd, dtype=self._dtype, count=dlen)
-        #vals = self._fd[cur: cur+dlen*2]
+        # vals = self._fd[cur: cur+dlen*2]
         # not necessary
         cur += dlen*2
-        #vals = np.frombuffer(vals, dtype=self._dtype)
+        # vals = np.frombuffer(vals, dtype=self._dtype)
 
         return pos, vals
 
@@ -189,7 +179,6 @@ class MultifileAPS:
         header[112:116] = np.array([cols], dtype="<i4").tobytes()
         self._fd.write(header)
 
-
     def write_raw(self, pos, vals):
         ''' Write a raw set of values for the next chunk.'''
         rows = self._rows
@@ -202,8 +191,7 @@ class MultifileAPS:
         self._fd.write(pos)
         self._fd.write(vals)
 
-import struct
-import time
+
 # TODO : split into RO and RW classes
 class MultifileBNL:
     '''
@@ -211,6 +199,7 @@ class MultifileBNL:
 
     '''
     HEADER_SIZE = 1024
+
     def __init__(self, filename, mode='rb', version=2):
         '''
             Prepare a file for reading or writing.
@@ -234,7 +223,7 @@ class MultifileBNL:
         # open the file descriptor
         # create a memmap
         if mode == 'rb':
-            #self._fd = np.memmap(filename, dtype='c')
+            # self._fd = np.memmap(filename, dtype='c')
             self._fd = open(filename, "rb")
         elif mode == 'wb':
             self._fd = open(filename, "wb")
@@ -246,13 +235,12 @@ class MultifileBNL:
 
         # some initialization stuff
         self.nbytes = self.md['bytes']
-        if (self.nbytes==2):
+        if (self.nbytes == 2):
             self.valtype = np.uint16
         elif (self.nbytes == 4):
             self.valtype = np.uint32
         elif (self.nbytes == 8):
             self.valtype = np.float64
-
 
         # frame number currently on
         self.index()
@@ -268,26 +256,25 @@ class MultifileBNL:
         t1 = time.time()
         cur = self.HEADER_SIZE
         file_bytes = os.path.getsize(self._filename)
-        #file_bytes = len(self._fd)
+        # file_bytes = len(self._fd)
 
         self.frame_indexes = list()
         while cur < file_bytes:
             self.frame_indexes.append(cur)
             # first get dlen, 4 bytes
-            
-            #dlen = np.frombuffer(self._fd[cur:cur+4], dtype="<u4")[0]
-            self._fd.seek(cur,os.SEEK_SET)
-            #dlen = np.frombuffer(self._fd[cur+152:cur+156], dtype="<u4")[0]
-            dlen = np.fromfile(self._fd, dtype=np.uint32,count=1)[0]
-            #print("found {} bytes".format(dlen))
+
+            # dlen = np.frombuffer(self._fd[cur:cur+4], dtype="<u4")[0]
+            self._fd.seek(cur, os.SEEK_SET)
+            # dlen = np.frombuffer(self._fd[cur+152:cur+156], dtype="<u4")[0]
+            dlen = np.fromfile(self._fd, dtype=np.uint32, count=1)[0]
+            # print("found {} bytes".format(dlen))
             # self.nbytes is number of bytes per val
             cur += 4 + dlen*(4+self.nbytes)
-            #break
+            # break
 
         self.Nframes = len(self.frame_indexes)
         t2 = time.time()
         print("Done. Took {} secs for {} frames".format(t2-t1, self.Nframes))
-
 
     def _read_main_header(self):
         ''' Read header from current seek position.
@@ -303,17 +290,16 @@ class MultifileBNL:
         '''
         # read in bytes
         # header is always from zero
-        cur = 0
-        #header_raw = self._fd[cur:cur + self.HEADER_SIZE]
+        # header_raw = self._fd[cur:cur + self.HEADER_SIZE]
         ms_keys = ['beam_center_x', 'beam_center_y', 'count_time',
                    'detector_distance', 'frame_time', 'incident_wavelength',
                    'x_pixel_size', 'y_pixel_size', 'bytes', 'nrows', 'ncols',
                    'rows_begin', 'rows_end', 'cols_begin', 'cols_end']
-        
-        self._fd.seek(0,os.SEEK_SET)
+
+        self._fd.seek(0, os.SEEK_SET)
         br = self._fd.read(1024)
-        magic = struct.unpack('@16s', br[:16])
-        md_temp =  struct.unpack('@8d7I916x', br[16:])
+        # magic = struct.unpack('@16s', br[:16])
+        md_temp = struct.unpack('@8d7I916x', br[16:])
         self.md = dict(zip(ms_keys, md_temp))
         return self.md
 
@@ -322,25 +308,26 @@ class MultifileBNL:
             Reads from current cursor in file.
         '''
         if n > self.Nframes:
-            raise KeyError("Error, only {} frames, asked for {}".format(self.Nframes, n))
+            raise KeyError("Error, only {} frames, asked for {}"
+                           .format(self.Nframes, n))
         # dlen is 4 bytes
         cur = self.frame_indexes[n]
-        #dlen = np.frombuffer(self._fd[cur:cur+4], dtype="<u4")[0]
-        self._fd.seek(cur,os.SEEK_SET)
-        dlen = np.fromfile(self._fd, dtype=np.uint32,count=1)[0]
+        # dlen = np.frombuffer(self._fd[cur:cur+4], dtype="<u4")[0]
+        self._fd.seek(cur, os.SEEK_SET)
+        dlen = np.fromfile(self._fd, dtype=np.uint32, count=1)[0]
         cur += 4
 
-        #pos = self._fd[cur: cur+dlen*4]
-        #pos = np.frombuffer(pos, dtype='<u4')
-        #self._fd.seek(cur,os.SEEK_SET)
-        pos = np.fromfile(self._fd, dtype=np.uint32,count=dlen)
+        # pos = self._fd[cur: cur+dlen*4]
+        # pos = np.frombuffer(pos, dtype='<u4')
+        # self._fd.seek(cur,os.SEEK_SET)
+        pos = np.fromfile(self._fd, dtype=np.uint32, count=dlen)
 
         cur += dlen*4
         # TODO: 2-> nbytes
-        #vals = self._fd[cur: cur+dlen*self.nbytes]
-        #vals = np.frombuffer(vals, dtype=self.valtype)
-        #self._fd.seek(cur,os.SEEK_SET)
-        vals = np.fromfile(self._fd, dtype=self.valtype,count=dlen)
+        # vals = self._fd[cur: cur+dlen*self.nbytes]
+        # vals = np.frombuffer(vals, dtype=self.valtype)
+        # self._fd.seek(cur,os.SEEK_SET)
+        vals = np.fromfile(self._fd, dtype=self.valtype, count=dlen)
 
         return pos, vals
 

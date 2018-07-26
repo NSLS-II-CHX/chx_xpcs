@@ -5,16 +5,17 @@ import struct
 
 EIGER_KEYS_DEFAULT = {
     # old version (less than v1.3.0)
-    'wavelength_pre1.3' : "entry/instrument/monochromator/wavelength",
+    'wavelength_pre1.3': "entry/instrument/monochromator/wavelength",
     # new version (greater than v1.3.0)
-    'wavelength_post1.3' : "entry/instrument/beam/incident_wavelength",
-    'beam_center_x' : "entry/instrument/detector/beam_center_x",
-    'beam_center_y' : "entry/instrument/detector/beam_center_x",
-    'count_time' : "entry/instrument/detector/count_time",
-    'x_pixel_size' : "entry/instrument/detector/x_pixel_size",
-    'y_pixel_size' : "entry/instrument/detector/y_pixel_size",
-    'frame_time' : "entry/instrument/detector/frame_time",
+    'wavelength_post1.3': "entry/instrument/beam/incident_wavelength",
+    'beam_center_x': "entry/instrument/detector/beam_center_x",
+    'beam_center_y': "entry/instrument/detector/beam_center_x",
+    'count_time': "entry/instrument/detector/count_time",
+    'x_pixel_size': "entry/instrument/detector/x_pixel_size",
+    'y_pixel_size': "entry/instrument/detector/y_pixel_size",
+    'frame_time': "entry/instrument/detector/frame_time",
 }
+
 
 def get_header_binary(filename, dims, version="v1.3.0"):
     '''
@@ -39,7 +40,6 @@ def get_header_binary(filename, dims, version="v1.3.0"):
     f = h5py.File(filename)
     # read in bytes
     # header is always from zero
-    cur = 0
     # this is version 2
     header = b"Version-COMP0002"
     header += struct.pack("@d", f[EIGER_KEYS['beam_center_x']].value)
@@ -72,6 +72,7 @@ def get_header_binary(filename, dims, version="v1.3.0"):
     header += struct.pack("@916x")
     return header
 
+
 def get_header_dict(filename, dims, version="v1.3.0"):
     '''
         Make the BNL compressed version 1.0 format header.
@@ -95,7 +96,6 @@ def get_header_dict(filename, dims, version="v1.3.0"):
     f = h5py.File(filename)
     # read in bytes
     # header is always from zero
-    cur = 0
     # this is version 2
     header = dict()
     header['version'] = "Version-COMP0002"
@@ -124,23 +124,25 @@ def get_header_dict(filename, dims, version="v1.3.0"):
     header['cols_end'] = dims[1]
     return header
 
+
 def get_valid_keys(filename, version="v1.3.0"):
     # the prefix of the data keys. Currently the same for all versions
-    dset_pref="data_"
+    dset_pref = "data_"
 
     f = h5py.File(filename)
 
     # resolve the version number
     if version >= "v1.3.0":
-        dset_root="/entry/data"
+        dset_root = "/entry/data"
     else:
         # this will be very unlikely
-        dset_root="/entry"
+        dset_root = "/entry"
 
     # get the range of data sets byt just inspecting the keys
     dset_keys = list(f[dset_root].keys())
 
-    dset_keys = [dset_key for dset_key in dset_keys if dset_key.startswith(dset_pref)]
+    dset_keys = [dset_key for dset_key in dset_keys if
+                 dset_key.startswith(dset_pref)]
     dset_keys.sort()
 
     # dset key validation (not necessarily needed)
