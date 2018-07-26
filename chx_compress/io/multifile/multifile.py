@@ -179,15 +179,19 @@ class MultifileAPS:
                            .format(self.Nframes, n))
         # read in bytes
         cur = self.frame_indexes[n]
-        # header_raw = self._fd[cur:cur + self.HEADER_SIZE]
+        header_raw = self._fd[cur:cur + self.HEADER_SIZE]
         header = dict()
-        #header['rows'] = np.frombuffer(header_raw[108:112], dtype=self._dtype)[0]
-        #header['cols'] = np.frombuffer(header_raw[112:116], dtype=self._dtype)[0]
-        #header['nbytes'] = np.frombuffer(header_raw[116:120], dtype=self._dtype)[0]
-        #header['dlen'] = np.frombuffer(header_raw[152:156], dtype=self._dtype)[0]
-        #print("dlen: {}\trows: {}\tcols: {}\tnbytes: {}\n"\
-              #.format(header['dlen'], header['rows'], header['cols'],
-                      #header['nbytes']))
+        # header['rows'] = np.frombuffer(header_raw[108:112],
+        #   dtype=self._dtype)[0]
+        # header['cols'] = np.frombuffer(header_raw[112:116],
+        #   dtype=self._dtype)[0]
+        # header['nbytes'] = np.frombuffer(header_raw[116:120],
+        #   dtype=self._dtype)[0]
+        # header['dlen'] = np.frombuffer(header_raw[152:156],
+        #   dtype=self._dtype)[0]
+        # print("dlen: {}\trows: {}\tcols: {}\tnbytes: {}\n"\
+        #   .format(header['dlen'], header['rows'], header['cols'],
+        #   header['nbytes']))
         # 0: mode (4 bytes)
         header['mode'] = np.frombuffer(header_raw[0:4], dtype=np.uint32)[0]
         # 4: compression (4 bytes)
@@ -347,6 +351,7 @@ class MultifileBNL:
 
     '''
     HEADER_SIZE = 1024
+
     def __init__(self, filename, mode='rb', version=2, md={}):
         '''
             Prepare a file for reading or writing.
@@ -380,8 +385,8 @@ class MultifileBNL:
         '''
         self.md = md
         self._version = version
-        #if mode == 'wb':
-            #raise ValueError("Write mode 'wb' not supported yet")
+        # if mode == 'wb':
+        #   raise ValueError("Write mode 'wb' not supported yet")
 
         if mode != 'rb' and mode != 'wb':
             raise ValueError("Error, mode must be 'rb' or 'wb'"
@@ -394,7 +399,7 @@ class MultifileBNL:
         # create a memmap
         if mode == 'rb':
             self._fd = np.memmap(filename, dtype='c')
-            # these are only necessary for reading 
+            # these are only necessary for reading
             self.md = self._read_main_header()
             self._rows = int(self.md['nrows'])
             self._cols = int(self.md['ncols'])
@@ -409,7 +414,6 @@ class MultifileBNL:
             print("initializing for write, writing main header")
             self._write_main_header(self.md)
 
-
         # some initialization stuff
         self.nbytes = self.md['bytes']
         if (self.nbytes == 2):
@@ -418,7 +422,6 @@ class MultifileBNL:
             self.valtype = np.uint32
         elif (self.nbytes == 8):
             self.valtype = np.float64
-
 
         if mode == 'rb':
             # frame number currently on
@@ -574,7 +577,6 @@ class MultifileBNL:
 
     def writeframe(self, img):
         pass
-
 
     def rdframe(self, n):
         # read header then image
