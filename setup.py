@@ -1,10 +1,6 @@
 #!/usr/bin/env python
 import setuptools
-from distutils.core import setup, Extension
-import versioneer
-import os
-import sys
-#from Cython.Build import cythonize
+# from Cython.Build import cythonize
 
 # necessary deps (won't build if this isn't here)
 import numpy as np
@@ -20,6 +16,5 @@ setuptools.setup(
     include_dirs=[np.get_include()],
     install_requires=requirements
     # scripts for building external modules
-    #ext_modules=cython_ext(),
+    # ext_modules=cython_ext(),
     )
-
